@@ -5,7 +5,7 @@ import struct
 import sys
 
 class Message():
-    def __init__(self, status_byte, note_number, velocity):
+    def __init__(self, status_byte, note_number, velocity=""):
         self.status_byte = binascii.hexlify(status_byte)
         self.note_number = binascii.hexlify(note_number)
         self.velocity = binascii.hexlify(velocity)
@@ -30,17 +30,19 @@ def getLength(f):
                 
 def parseMessage(f):
     meta_type = f.read(1)
-    if meta_type == b'\x2F':
+    if ord(meta_type) == 47:
         print "End of Track"
         v_length = getLength(f)
         return False
 
     v_length = getLength(f)
     message = ""
-    print "v_length: ", v_length
+    #print "v_length: ", v_length
     for j in range(v_length):
         message += str(f.read(1))
-    print "Meta Event: ", message
+    print message
+    if message == "":
+        return "None"
     return message
 
 def SysExEv(f):
@@ -72,16 +74,19 @@ with open("darude-sandstorm.mid", "rb") as f:
     for chunkNumber in range(chunkSize):
 
         MTrk = f.read(4) #chunk header
+        if MTrk == '':
+            break
         if MTrk !="MTrk":
-            raise TypeError("Track mark is off at chunk: " + str(chunkNumber))
-        
+            raise TypeError("Track mark is off at chunk: " + str(chunkNumber), "Got a head of: ", MTrk)
+
         #number of events in the chunk
         length = struct.unpack(">i", f.read(4))[0]
-        print "events in track: ", length
-        for i in range(length):
-            print "Track Event Number: ", i
+        #print "events in track: ", length
+
+        while True:
+            #print "Track Event Number: ", i
             v_time = getLength(f)
-            print "current time: ", v_time
+            #print "current time: ", v_time
 
             s = f.read(1)
             if s == b'\xFF':
@@ -96,7 +101,12 @@ with open("darude-sandstorm.mid", "rb") as f:
                 
             else:
                 #its a Track Event
-                #msg = Message(s, f.read(1), f.read(1))
-                #msgs.append(msg)
-                #print "note: ", msg
-                pass
+                #print "Track Event Number: ", i
+                so = ord(s)
+                if (so >> 7) & 1 == 1 and (so >> 6) & 1 == 1 and (so >> 5) & 1 == 0:
+                    msg = Message(s, f.read(1))
+                else:
+                    msg = Message(s, f.read(1), f.read(1))
+
+                msgs.append(msg)
+                print msg
